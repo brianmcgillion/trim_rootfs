@@ -1,4 +1,4 @@
-echo
+echo ----------------------
 echo NFS Boot Configuration:
 echo ----------------------
 setenv memory mem=384M@0M mem=512M@512M nvmem=128M@384M
@@ -9,7 +9,6 @@ setenv serverip 10.0.0.1
 setenv netmask 255.255.255.0
 setenv gatewayip 10.0.0.1
 setenv ipaddr 10.0.0.2
-setenv hostname trim
 
 setenv path /home/brian/Embedded/scratch/target
 setenv nfs_root ${serverip}:${path},nolock,tcp,rsize=1024,wsize=1024,v3
