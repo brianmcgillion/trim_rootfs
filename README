@@ -1,0 +1,163 @@
+#
+#Install the required packages
+#
+
+$ sudo apt-get install screen minicom nfs-kernel-server qemu-system qemu-user uml-utilities build-essential bison flex gettext texinfo u-boot-tools gcc-arm-linux-gnueabi gparted git tree
+
+#
+# clone the trimslice kernel tree and move to 1.0 branch
+#
+
+$ git clone git@gitorious.org:trimslice-kernel/trimslice-kernel.git trimslice-kernel
+$ cd trimslice-kernel
+$ git checkout -b trimslice/1.01-dev trimslice-1.01
+
+#
+# Get the required firmware for the nic
+# download the realtek firmware from http://packages.debian.org/sid/all/firmware-realtek/download
+#
+# and add it to the kernel tree
+#
+
+$ ar -x firmware-realtek_0.35_all.deb
+$ tar -xzvf data.tar.gz
+$ cp -r lib/firmware/rtl_nic <kernel_path>/firmware/rtl_nic
+
+#
+# build the kernel
+#
+ 
+$ export ARCH=arm
+$ export CROSS_COMPILE=arm-none-linux-gnueabi-
+$ make trimslice_defconfig
+$ make menu_config
+  - Remove Toymyo LSM (have DAC default)
+  - In filesystems enable Dnotify
+  - save
+$ make uImage
+$ make modules
+$ INSTALL_MOD_PATH=./modules_install make modules_install
+
+#
+# Make the uboot script loadable, NB edit the path and ip addresses
+# as required
+#
+
+$ mkimage -A arm -O linux -T script -C none -a 0 -e 0 -n "Boot from rootfs" -d boot.script boot.scr
+
+#
+# format the mmc card as ext2 (with gparted) and copy files there
+# assume label is MAIN
+#
+
+$ sudo cp boot.src /media/MAIN/boot
+$ sudo cp kernel/arch/arm/boot/uImage /media/MAIN/boot
+$ sudo cp kernel/modules_install/* /media/
+$ tree -L 2 /media/MAIN/
+/media/MAIN/
+├── boot
+│   ├── boot.scr
+│   └── uImage
+├── lib
+    └── modules
+
+$ sudo umount /media/MAIN
+
+#
+# Copy the run time libraries to the root filesystem
+#
+
+$ ./cp_rt_libs.sh
+
+#
+# edit the nfs server settings to export the rootfs
+#
+
+$ sudo emacs /etc/exports
+ #provide minimal rootfs over eth0
+ /home/brian/Embedded/scratch/target 10.0.0.1/24(rw,sync,no_root_squash,no_subtree_check)
+
+#
+# stop network-manager and reload the nfs server settings
+# have to stop the networ-manager to stop it taking control of eth0
+#
+
+$ sudo initctl stop network-manager
+$ sudo ifconfig eth0 10.0.0.1 up
+$ sudo /etc/init.d/nfs-kernel-server restart
+$ sudo exportfs -a
+
+#
+# Configure minicom
+#
+# connect the serial cables for the trimslice to the pc.
+# look at dmesg to find the device that the serial is listening on
+#
+
+$ dmesg
+  - look at the last line should something like
+    "usb 2-1.2: pl2303 converter now attached to ttyUSB0"
+ 
+$ sudo minicom -s
+ - change the "serial port setup"
+ - option A change to /dev/ttyUSB0 (or whatever came from dmesg)
+ - press return to go back to previous menu
+ - Save setup as dfl
+ - Exit
+
+#
+# Start the system
+#
+
+$ minicom
+
+# put the microSD card in the trimslice and power on
+# it runs through some checks and then loads the kernel
+# should see output similar to ...
+
+""" 
+
+Scanning ext2 mmc 1 on prefix /boot/ ...
+Loading file "/boot/boot.scr" from mmc device 1:1 (xxb1)
+705 bytes read
+boot.scr found! Executing ...
+## Executing script at 00408000
+
+NFS Boot Configuration:
+----------------------
+Loading file "/boot/uImage" from mmc device 1:1 (xxb1)
+
+"""
+
+# After a couple of seconds you should see
+
+"""
+ System initialization...
+
+    Hostname       : TRIMSLICE
+    Filesystem     : v1.0.0
+
+ <snip>
+
+ Mounting /proc             : [SUCCESS]
+ Mounting /sys              : [SUCCESS]
+ Mounting /dev              : [SUCCESS]
+ Mounting /dev/pts          : [SUCCESS]
+ Enabling hot-plug          : [SUCCESS]
+ Populating /dev            : [SUCCESS]
+ Mounting other filesystems : [SUCCESS]
+ Starting syslogd           : [SUCCESS]
+ Starting telnetd           : [SUCCESS]
+
+System initialization complete.
+
+Please press Enter to activate this console.
+
+"""
+
+# And we are done !!
+
+References:
+http://www.trimslice.com/wiki/index.php/Trim-Slice_Linux_Kernel
+http://processors.wiki.ti.com/index.php/Creating_a_Root_File_System_for_Linux_on_OMAP35x
+
