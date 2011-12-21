@@ -28,7 +28,7 @@ $ cp -r lib/firmware/rtl_nic <kernel_path>/firmware/rtl_nic
 #
  
 $ export ARCH=arm
-$ export CROSS_COMPILE=arm-none-linux-gnueabi-
+$ export CROSS_COMPILE=arm-linux-gnueabi-
 $ make trimslice_defconfig
 $ make menu_config
   - Remove Toymyo LSM (have DAC default)
